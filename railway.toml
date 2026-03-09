@@ -1,0 +1,8 @@
+[build]
+builder = "nixpacks"
+nixpacksConfigPath = "nixpacks.toml"
+
+[deploy]
+startCommand = "gunicorn app:app --bind 0.0.0.0:$PORT"
+restartPolicyType = "on-failure"
+restartPolicyMaxRetries = 10

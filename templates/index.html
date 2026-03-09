@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warehouse - Stock Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg navbar-custom">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="#">
+            <i class="fas fa-warehouse me-2"></i>
+            <span data-translate="app_title">Склад</span>
+        </a>
+        <div class="d-flex align-items-center gap-2">
+            <div class="lang-switcher">
+                <button class="btn btn-lang active" id="btn-ru" onclick="switchLang('ru')">RU</button>
+                <button class="btn btn-lang" id="btn-zh" onclick="switchLang('zh')">中文</button>
+            </div>
+            <a href="/logout" class="btn btn-logout">
+                <i class="fas fa-sign-out-alt me-1"></i>
+                <span data-translate="logout">Выйти</span>
+            </a>
+        </div>
+    </div>
+</nav>
+
+<!-- Main Content -->
+<div class="container-fluid main-content">
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="row align-items-center g-3">
+            <div class="col-md-6">
+                <div class="search-wrapper">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" class="form-control search-input" id="searchInput"
+                           data-translate-placeholder="search_placeholder" placeholder="Поиск по артикулу или наименованию..."
+                           oninput="searchProducts()">
+                </div>
+            </div>
+            <div class="col-md-6 text-md-end">
+                <button class="btn btn-add" onclick="openAddModal()">
+                    <i class="fas fa-plus me-2"></i>
+                    <span data-translate="add_product">Добавить товар</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Products Table -->
+    <div class="table-card">
+        <div class="table-responsive">
+            <table class="table table-modern" id="productsTable">
+                <thead>
+                    <tr>
+                        <th data-translate="col_number">№</th>
+                        <th data-translate="col_article">Артикул</th>
+                        <th data-translate="col_name">Наименование</th>
+                        <th data-translate="col_quantity">Количество</th>
+                        <th data-translate="col_comment">Комментарий</th>
+                        <th data-translate="col_actions">Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="productsBody">
+                </tbody>
+            </table>
+        </div>
+        <div class="empty-state" id="emptyState" style="display:none;">
+            <i class="fas fa-box-open"></i>
+            <p data-translate="no_products">Товары не найдены</p>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal fade" id="productModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-custom">
+            <div class="modal-header">
+                <h5 class="modal-title" id="productModalTitle" data-translate="add_product">Добавить товар</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editProductId">
+                <div class="mb-3">
+                    <label class="form-label" data-translate="col_article">Артикул</label>
+                    <input type="text" class="form-control input-custom" id="inputArticle">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" data-translate="col_name">Наименование</label>
+                    <input type="text" class="form-control input-custom" id="inputName">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" data-translate="col_quantity">Количество</label>
+                    <input type="number" class="form-control input-custom" id="inputQuantity" min="0" value="0">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" data-translate="col_comment">Комментарий</label>
+                    <textarea class="form-control input-custom" id="inputComment" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-cancel" data-bs-dismiss="modal" data-translate="cancel">Отмена</button>
+                <button type="button" class="btn btn-save" onclick="saveProduct()" data-translate="save">Сохранить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- History Modal -->
+<div class="modal fade" id="historyModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content modal-custom">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-history me-2"></i>
+                    <span data-translate="history_title">История изменений</span>
+                    <span id="historyProductName" class="text-muted ms-2" style="font-size:14px;"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-modern" id="historyTable">
+                        <thead>
+                            <tr>
+                                <th data-translate="history_date">Дата</th>
+                                <th data-translate="history_old">Старое количество</th>
+                                <th data-translate="history_new">Новое количество</th>
+                                <th data-translate="history_change">Изменение</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyBody">
+                        </tbody>
+                    </table>
+                </div>
+                <div class="empty-state" id="emptyHistory" style="display:none;">
+                    <i class="fas fa-clock"></i>
+                    <p data-translate="no_history">История пуста</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content modal-custom">
+            <div class="modal-header border-0">
+                <h5 class="modal-title" data-translate="confirm_delete">Подтверждение</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <div class="delete-icon-wrapper mb-3">
+                    <i class="fas fa-trash-alt"></i>
+                </div>
+                <p data-translate="delete_confirm_text">Удалить этот товар?</p>
+                <input type="hidden" id="deleteProductId">
+            </div>
+            <div class="modal-footer border-0 justify-content-center">
+                <button type="button" class="btn btn-cancel" data-bs-dismiss="modal" data-translate="cancel">Отмена</button>
+                <button type="button" class="btn btn-delete-confirm" onclick="confirmDelete()" data-translate="delete">Удалить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ==================== TRANSLATIONS ====================
+const translations = {
+    ru: {
+        app_title: 'Склад',
+        logout: 'Выйти',
+        search_placeholder: 'Поиск по артикулу или наименованию...',
+        add_product: 'Добавить товар',
+        edit_product: 'Редактировать товар',
+        col_number: '№',
+        col_article: 'Артикул',
+        col_name: 'Наименование',
+        col_quantity: 'Количество',
+        col_comment: 'Комментарий',
+        col_actions: 'Действия',
+        save: 'Сохранить',
+        cancel: 'Отмена',
+        delete: 'Удалить',
+        edit: 'Редактировать',
+        history: 'История',
+        history_title: 'История изменений',
+        history_date: 'Дата',
+        history_old: 'Старое количество',
+        history_new: 'Новое количество',
+        history_change: 'Изменение',
+        no_products: 'Товары не найдены',
+        no_history: 'История пуста',
+        confirm_delete: 'Подтверждение',
+        delete_confirm_text: 'Удалить этот товар?',
+        btn_edit_tooltip: 'Редактировать',
+        btn_delete_tooltip: 'Удалить',
+        btn_history_tooltip: 'История'
+    },
+    zh: {
+        app_title: '仓库',
+        logout: '退出',
+        search_placeholder: '按商品编号或名称搜索...',
+        add_product: '添加商品',
+        edit_product: '编辑商品',
+        col_number: '序号',
+        col_article: '商品编号',
+        col_name: '名称',
+        col_quantity: '数量',
+        col_comment: '备注',
+        col_actions: '操作',
+        save: '保存',
+        cancel: '取消',
+        delete: '删除',
+        edit: '编辑',
+        history: '历史记录',
+        history_title: '变更历史',
+        history_date: '日期',
+        history_old: '原数量',
+        history_new: '新数量',
+        history_change: '变化',
+        no_products: '未找到商品',
+        no_history: '暂无历史记录',
+        confirm_delete: '确认',
+        delete_confirm_text: '确定要删除该商品吗？',
+        btn_edit_tooltip: '编辑',
+        btn_delete_tooltip: '删除',
+        btn_history_tooltip: '历史记录'
+    }
+};
+
+let currentLang = localStorage.getItem('warehouse_lang') || 'ru';
+
+function switchLang(lang) {
+    currentLang = lang;
+    localStorage.setItem('warehouse_lang', lang);
+    applyTranslations();
+    document.getElementById('btn-ru').classList.toggle('active', lang === 'ru');
+    document.getElementById('btn-zh').classList.toggle('active', lang === 'zh');
+    // Re-render table to update action button tooltips
+    loadProducts();
+}
+
+function t(key) {
+    return translations[currentLang][key] || key;
+}
+
+function applyTranslations() {
+    document.querySelectorAll('[data-translate]').forEach(el => {
+        const key = el.getAttribute('data-translate');
+        if (translations[currentLang][key]) {
+            el.textContent = translations[currentLang][key];
+        }
+    });
+    document.querySelectorAll('[data-translate-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-translate-placeholder');
+        if (translations[currentLang][key]) {
+            el.placeholder = translations[currentLang][key];
+        }
+    });
+}
+
+// ==================== API CALLS ====================
+async function loadProducts() {
+    const search = document.getElementById('searchInput').value;
+    const params = search ? `?search=${encodeURIComponent(search)}` : '';
+    const response = await fetch(`/api/products${params}`);
+    const products = await response.json();
+    renderProducts(products);
+}
+
+function renderProducts(products) {
+    const tbody = document.getElementById('productsBody');
+    const emptyState = document.getElementById('emptyState');
+
+    if (products.length === 0) {
+        tbody.innerHTML = '';
+        emptyState.style.display = 'block';
+        return;
+    }
+
+    emptyState.style.display = 'none';
+    tbody.innerHTML = products.map(p => `
+        <tr>
+            <td><span class="badge-number">${p.number}</span></td>
+            <td><span class="article-code">${escapeHtml(p.article)}</span></td>
+            <td class="fw-medium">${escapeHtml(p.name)}</td>
+            <td>
+                <span class="quantity-badge ${p.quantity === 0 ? 'quantity-zero' : p.quantity < 10 ? 'quantity-low' : 'quantity-ok'}">
+                    ${p.quantity}
+                </span>
+            </td>
+            <td class="text-muted comment-cell">${escapeHtml(p.comment || '')}</td>
+            <td>
+                <div class="action-buttons">
+                    <button class="btn btn-action btn-action-edit" onclick="openEditModal(${p.id}, '${escapeJs(p.article)}', '${escapeJs(p.name)}', ${p.quantity}, '${escapeJs(p.comment || '')}')" title="${t('btn_edit_tooltip')}">
+                        <i class="fas fa-pen"></i>
+                    </button>
+                    <button class="btn btn-action btn-action-history" onclick="openHistory(${p.id}, '${escapeJs(p.name)}')" title="${t('btn_history_tooltip')}">
+                        <i class="fas fa-history"></i>
+                    </button>
+                    <button class="btn btn-action btn-action-delete" onclick="openDeleteModal(${p.id})" title="${t('btn_delete_tooltip')}">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function escapeJs(text) {
+    return String(text).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n');
+}
+
+// ==================== MODALS ====================
+let productModal, historyModal, deleteModal;
+
+document.addEventListener('DOMContentLoaded', () => {
+    productModal = new bootstrap.Modal(document.getElementById('productModal'));
+    historyModal = new bootstrap.Modal(document.getElementById('historyModal'));
+    deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+
+    // Apply initial language
+    document.getElementById('btn-ru').classList.toggle('active', currentLang === 'ru');
+    document.getElementById('btn-zh').classList.toggle('active', currentLang === 'zh');
+    applyTranslations();
+    loadProducts();
+});
+
+function openAddModal() {
+    document.getElementById('editProductId').value = '';
+    document.getElementById('inputArticle').value = '';
+    document.getElementById('inputName').value = '';
+    document.getElementById('inputQuantity').value = '0';
+    document.getElementById('inputComment').value = '';
+    document.getElementById('productModalTitle').setAttribute('data-translate', 'add_product');
+    document.getElementById('productModalTitle').textContent = t('add_product');
+    productModal.show();
+}
+
+function openEditModal(id, article, name, quantity, comment) {
+    document.getElementById('editProductId').value = id;
+    document.getElementById('inputArticle').value = article;
+    document.getElementById('inputName').value = name;
+    document.getElementById('inputQuantity').value = quantity;
+    document.getElementById('inputComment').value = comment;
+    document.getElementById('productModalTitle').setAttribute('data-translate', 'edit_product');
+    document.getElementById('productModalTitle').textContent = t('edit_product');
+    productModal.show();
+}
+
+async function saveProduct() {
+    const id = document.getElementById('editProductId').value;
+    const data = {
+        article: document.getElementById('inputArticle').value.trim(),
+        name: document.getElementById('inputName').value.trim(),
+        quantity: parseInt(document.getElementById('inputQuantity').value) || 0,
+        comment: document.getElementById('inputComment').value.trim()
+    };
+
+    if (!data.article || !data.name) {
+        document.getElementById('inputArticle').classList.toggle('is-invalid', !data.article);
+        document.getElementById('inputName').classList.toggle('is-invalid', !data.name);
+        return;
+    }
+
+    const url = id ? `/api/products/${id}` : '/api/products';
+    const method = id ? 'PUT' : 'POST';
+
+    await fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+
+    productModal.hide();
+    loadProducts();
+}
+
+function openDeleteModal(id) {
+    document.getElementById('deleteProductId').value = id;
+    deleteModal.show();
+}
+
+async function confirmDelete() {
+    const id = document.getElementById('deleteProductId').value;
+    await fetch(`/api/products/${id}`, { method: 'DELETE' });
+    deleteModal.hide();
+    loadProducts();
+}
+
+async function openHistory(productId, productName) {
+    document.getElementById('historyProductName').textContent = `— ${productName}`;
+    const response = await fetch(`/api/products/${productId}/history`);
+    const history = await response.json();
+
+    const tbody = document.getElementById('historyBody');
+    const emptyHistory = document.getElementById('emptyHistory');
+
+    if (history.length === 0) {
+        tbody.innerHTML = '';
+        emptyHistory.style.display = 'block';
+        document.getElementById('historyTable').style.display = 'none';
+    } else {
+        emptyHistory.style.display = 'none';
+        document.getElementById('historyTable').style.display = 'table';
+        tbody.innerHTML = history.map(h => {
+            const diff = h.new_quantity - h.old_quantity;
+            const diffClass = diff > 0 ? 'change-positive' : diff < 0 ? 'change-negative' : 'change-neutral';
+            const diffText = diff > 0 ? `+${diff}` : `${diff}`;
+            return `
+                <tr>
+                    <td>${h.change_date}</td>
+                    <td>${h.old_quantity}</td>
+                    <td>${h.new_quantity}</td>
+                    <td><span class="change-badge ${diffClass}">${diffText}</span></td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // Re-apply translations for the modal
+    applyTranslations();
+    historyModal.show();
+}
+
+function searchProducts() {
+    loadProducts();
+}
+
+// Remove invalid state on input
+document.addEventListener('input', (e) => {
+    if (e.target.classList.contains('is-invalid')) {
+        e.target.classList.remove('is-invalid');
+    }
+});
+</script>
+</body>
+</html>
